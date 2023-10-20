@@ -1,123 +1,105 @@
 const express = require('express');
 const router = express.Router();
-const jsonAccounts = require("../models/accounts.model.js");
+const existingAccounts = require('../models/account.model');
 const bodyParser = require('body-parser');
 
+// Middleware to check if an account exists
+function accountExists(req, res, next) {
+  const { accountId } = req.params;
+  const account = existingAccounts.find((acc) => acc.account_id === accountId);
+
+  if (!account) {
+    return res.status(404).json({ message: 'Account not found' });
+  }
+
+  next();
+}
+
+// Middleware to validate account data
+function validateAccountData(req, res, next) {
+  const newAccount = req.body;
+
+  if (
+    typeof newAccount.account_id === 'string' &&
+    typeof newAccount.username === 'string' &&
+    typeof newAccount.balance === 'number' &&
+    typeof newAccount.account_number === 'string' &&
+    typeof newAccount.routing_number === 'string' &&
+    typeof newAccount.type === 'string'
+  ) {
+    next();
+  } else {
+    return res.status(400).json({ message: 'Invalid account data provided' });
+  }
+}
+
 router.use(bodyParser.json());
-router.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    next();
-});
-router.use((req, res, next) => {
-    // Get the query parameters
-    const { sort, filterType } = req.query;
 
-    // Clone the original accounts array to avoid modifying the original data
-    let sortedAndFilteredAccounts = [...jsonAccounts];
+// Create a new account
+router.post('/accounts', validateAccountData, (req, res) => {
+  const newAccount = req.body;
 
-    // Handle sorting by amount (balance)
-    if (sort === 'asc') {
-        sortedAndFilteredAccounts.sort((a, b) => a.balance - b.balance);
-    } else if (sort === 'desc') {
-        sortedAndFilteredAccounts.sort((a, b) => b.balance - a.balance);
-    }
+  if (existingAccounts.find((acc) => acc.account_id === newAccount.account_id)) {
+    return res.status(400).json({ message: 'Account already exists' });
+  } else {
+    const newAccountObj = {
+      account_id: newAccount.account_id,
+      username: newAccount.username,
+      balance: newAccount.balance,
+      account_number: newAccount.account_number,
+      routing_number: newAccount.routing_number,
+      type: newAccount.type,
+    };
 
-    // Handle filtering by account type
-    if (filterType) {
-        sortedAndFilteredAccounts = sortedAndFilteredAccounts.filter(
-            (account) => account.type.toLowerCase() === filterType.toLowerCase()
-        );
-    }
-
-    // Update the response locals with the sorted and filtered accounts
-    res.locals.sortedAndFilteredAccounts = sortedAndFilteredAccounts;
-
-    next();
+    existingAccounts.push(newAccountObj);
+    return res.status(201).json({
+      status: 'OK',
+      payload: existingAccounts[existingAccounts.length - 1],
+      message: 'Account created',
+    });
+  }
 });
 
-// Apply the sortAndFilterAccounts middleware to specific routes
-router.get("/accounts", sortAndFilterAccounts, (req, res) => {
-    // Use res.locals.sortedAndFilteredAccounts instead of jsonAccounts
-    res.json(res.locals.sortedAndFilteredAccounts);
+// Get all accounts
+router.get('/accounts', (req, res) => {
+  res.json(existingAccounts);
 });
 
-router.get("/accounts", (req, res) => {
-    res.json(jsonAccounts);
+// Get an account by ID
+router.get('/accounts/:accountId', accountExists, (req, res) => {
+  const { accountId } = req.params;
+  const account = existingAccounts.find((acc) => acc.account_id === accountId);
+
+  if (account) {
+    res.json(account);
+  } else {
+    res.status(404).json({ message: 'Account not found' });
+  }
 });
 
-router.get("/accounts/:accountId", (req, res) => {
-    const accountId = parseInt(req.params.accountId);
-    const account = jsonAccounts.find((acc) => acc.account_id === accountId);
-    if (!account) {
-        return res.status(404).json({ message: "Account not found" });
-    } else {
-        res.json(account);
-    }
+// Update an account by ID
+router.put('/accounts/:accountId', accountExists, validateAccountData, (req, res) => {
+  const { accountId } = req.params;
+  const updatedAccount = req.body;
+
+  if (!existingAccounts[accountId]) {
+    return res.status(404).json({ message: 'Account not found' });
+  }
+
+  existingAccounts[accountId] = updatedAccount;
+  res.status(200).json({ updatedAccount: updatedAccount });
 });
 
-router.put("/accounts/:accountId", (req, res) => {
-    const accountId = req.params.accountId;
-    if (!jsonAccounts[accountId]) {
-        jsonAccounts[accountId] = req.body;
-        res.status(200).json(jsonAccounts[accountId]);
-        console.log('Account updated');
-    } else {
-        res.status(404).json({ message: "Account not found" });
-    }
-});
+// Delete an account by ID
+router.delete('/accounts/:accountId', accountExists, (req, res) => {
+  const { accountId } = req.params;
 
-router.delete("/accounts/:accountId", (req, res) => {
-    const accountId = req.params.accountId;
-    if (!jsonAccounts[accountId]) {
-        res.status(404).json({ message: "Account not found" });
-    } else {
-        delete jsonAccounts[accountId];
-        res.status(200).json({ message: "Account deleted" });
-    }
-});
+  if (!existingAccounts[accountId]) {
+    return res.status(404).json({ message: 'Account not found' });
+  }
 
-router.post("/accounts", (req, res) => {
-    const newAccount = req.body;
-
-    function validateAccount(entry) {
-        if (
-            entry.account_id &&
-            typeof entry.account_id === "string" &&
-            typeof entry.userName === "string" &&
-            typeof entry.balance === "number" &&
-            typeof entry.account_number === "string" &&
-            typeof entry.routing_number === "string" &&
-            typeof entry.maskedNumber === "string" &&
-            typeof entry.type === "string"
-        ) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    if (!validateAccount(newAccount)) {
-        return res.status(400).json({ message: "Invalid account data provided" });
-    } else if (jsonAccounts.find((acc) => acc.account_id === newAccount.account_id)) {
-        return res.status(400).json({ message: "Account already exists" });
-    } else {
-        const newAccountId = jsonAccounts.length;
-
-        const newAccountObj = {
-            accountId: newAccountId,
-            account_id: newAccount.account_id,
-            userName: newAccount.userName,
-            balance: newAccount.balance,
-            account_number: newAccount.account_number,
-            routing_number: newAccount.routing_number,
-            maskedNumber: newAccount.maskedNumber,
-            type: newAccount.type
-        };
-
-        jsonAccounts.push(newAccountObj);
-        return res.status(201).json({ status: 'OK', payload: newAccountObj, message: "Account created" });
-    }
+  existingAccounts.splice(accountId, 1);
+  res.status(204).send('Account deleted successfully');
 });
 
 module.exports = router;

@@ -1,52 +1,62 @@
-import faker from '@faker-js/faker';
+const faker = require('faker');
 
-const account = () => {
-    return {
-        account_id: faker.random.alphaNumeric(8),
-        userName: faker.name.findName(),
-        balance: faker.finance.amount(),
-        account_number: faker.finance.account(),
-        routing_number: faker.finance.routingNumber(),
-        mask: faker.finance.mask(),
-        type: faker.finance.accountName(),
-    };
+const initialTransactions = [
+  {
+    transaction_id: 1,
+    name: 'Icolyn Jones',
+    username: 'herring',
+    purchase: 'Teddy Bear',
+    type: 'Entertainment',
+    store: "Toys' R Us",
+    amount: 50.12,
+  },
+  {
+    transaction_id: 2,
+    name: 'Marie Taylor',
+    username: 'blue_mahagony',
+    purchase: 'Stove',
+    type: 'Housing',
+    store: 'P. C. Richards',
+    amount: 133.45,
+  },
+  {
+    transaction_id: 3,
+    name: 'Icolyn Jones',
+    username: 'herring',
+    purchase: 'Television',
+    type: 'Entertainment',
+    store: 'P.C. Richards',
+    amount: 50.12,
+  },
+  {
+    transaction_id: 4,
+    name: 'Jason Steegs',
+    username: 'taboo',
+    purchase: 'MacBook Air',
+    type: 'Education',
+    store: 'Apple Inc',
+    amount: 765.88,
+  },
+];
+
+const numTransactionsToAdd = 50; // Number of additional transactions to generate
+const generatedTransactions = [];
+
+for (let i = 1; i <= numTransactionsToAdd; i++) {
+  const newTransaction = {
+    transaction_id: initialTransactions.length + i,
+    name: faker.name.findName(),
+    username: faker.internet.userName(),
+    purchase: faker.commerce.product(),
+    type: faker.random.arrayElement(['Education', 'Entertainment', 'Housing', 'Food', 'Transportation', 'Healthcare']),
+    store: faker.company.companyName(),
+    amount: parseFloat(faker.finance.amount(1, 1000, 2)),
+  };
+  generatedTransactions.push(newTransaction);
 }
 
-const createAccounts = (count) => {
-    const accounts = [];
-    for (let i = 0; i < count; i++) {
-        accounts.push(account());
-    }
-    return accounts;
-}
+// Combine the initial and generated transactions
+const allTransactions = initialTransactions.concat(generatedTransactions);
+console.log(allTransactions);
 
-const createdAccounts = createAccounts(10);
-console.log(createdAccounts);
-
-const transaction = () => {
-    return {
-        transaction_id: faker.random.alphaNumeric(8),
-        price: faker.finance.amount(),
-        category: faker.finance.transactionType(),
-        date: faker.date.past(),
-        name: faker.commerce.productName(),
-        desc: faker.commerce.productDescription(),
-        pending: faker.random.boolean(),
-        store: faker.company.companyName(),
-    };
-}
-
-const createTransactions = (count) => {
-    const transactions = [];
-    for (let i = 0; i < count; i++) {
-        transactions.push(transaction());
-    }
-    return transactions;
-}
-
-const createdTransactions = createTransactions(10);
-
-export default {
-    createdAccounts,
-    createdTransactions
-}
+module.exports = allTransactions;
