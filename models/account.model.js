@@ -1,10 +1,12 @@
-const existingAccounts  = [{
+const existingAccounts  = [
+  {
    account_id: 1,
    userName: "blue_mahagony",
     balance: 8121.42,
     account_number: "5638296736939019",
     routing_number: "74832974302",
-    type: "Checking"
+    type: "Checking",
+    monthlyIncome: 37548.18
 },
 {
     account_id: 2,
@@ -12,7 +14,8 @@ const existingAccounts  = [{
      balance: 631.42,
      account_number: "57494932708186740",
      routing_number: "765645435687",
-     type: "Savings"
+     type: "Savings",
+     monthlyIncome: 88351.52
 },
 {
     account_id: 3,
@@ -20,19 +23,22 @@ const existingAccounts  = [{
      balance: 1012.66,
      account_number: "56386478872659198",
      routing_number: "6478839076990",
-     type: "Checking"
+     type: "Checking",
+     monthlyIncome: 54977.77
 },
 {
     account_id: 4,
     userName: 'marie-taylor',
-    balance: 1001.3512333205376,
+    balance: 1001.35,
     account_number: '4924554518255981',
     routing_number: '4175980153',
-    type: 'Checking'
-  }]
+    type: 'Checking',
+    monthlyIncome: 67980.17
+  }
+]
 
 // Monthly income for accounts
-const monthlyIncomes = [9270, 6333, 8730, 11230];
+const monthlyIncomes = [37548.18, 88351.52, 54977.77, 67980.17];
 
 // Assign monthly income to the first 4 accounts
 existingAccounts[0].monthlyIncome = monthlyIncomes[0];

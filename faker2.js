@@ -42,7 +42,7 @@ const existingAccounts = [
       balance: Math.random() * 10000, // Generate a random balance
       account_number: `${Math.floor(Math.random() * 10000000000000000)}`,
       routing_number: `${Math.floor(Math.random() * 10000000000)}`,
-      type: i % 2 === 0 ? "Checking" : "Savings", // Alternating between Checking and Savings
+      type: i % 2 === 0 ? "Checking" : "Savings", "Investment", "Business" // Alternating between Checking and Savings
     });
   }
   

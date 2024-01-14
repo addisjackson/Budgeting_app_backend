@@ -4,7 +4,7 @@ const express = require('express');
 
 
 require('dotenv').config();
-const port = process.env.PORT || 5050;
+const port = process.env.PORT || 8000;
 
 app.listen(port, () => {
     console.log(`Budget App listening on port ${port}`);
