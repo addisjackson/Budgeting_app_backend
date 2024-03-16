@@ -40,7 +40,6 @@ for (let i = 1; i <= numCommoditiesToAdd; i++) {
     type: faker.random.arrayElement([
       'Child Care & Education',
       'Apparel',
-      'Entertainment',
       'Housing',
       'Food',
       'Transportation',

@@ -844,7 +844,7 @@ const transactions = [
     name: 'Icolyn Jones',
     username: 'herring',
     purchase: 'Shirt',
-    type: 'Entertainment',
+    type: 'Apparel',
     store: 'Blanda - Murray',
     amount: '337.37',
     date: '9/29/2022'

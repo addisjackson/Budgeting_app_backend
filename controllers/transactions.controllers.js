@@ -1,12 +1,19 @@
 const express = require('express');
 const router = express.Router();
+const transactionQueries = require('../queries/transactionQueries');
 const transactions = require('../models/transaction.model');
+const { getTransactionsByMonthYearUserType, getTransactionsByMonthYear } = require('../queries/transactionQueries');
+const cors = require('cors');
 const bodyParser = require('body-parser');
+
+router.use(express.json()); // Use express.json() instead of bodyParser.json()
+router.use(cors()); // Use cors as a function
+router.use(bodyParser.json());
 
 // Middleware to check if a transaction exists
 function transactionExists(req, res, next) {
-  const id = req.params.transaction_id; // Assuming the parameter is 'transaction_id'
-  const transaction = transactions.find(transaction => transaction.transaction_id === id); // Assuming the ID property is '_id'
+  const transaction_id = req.params;
+  const transaction = transactions.find(transaction => transaction.transaction_id === transaction_id);
 
   if (!transaction) {
     return res.status(404).json({ message: 'Transaction not found' });
@@ -26,7 +33,7 @@ function validateTransactionData(req, res, next) {
     typeof newTransaction.purchase === 'string' &&
     typeof newTransaction.type === 'string' &&
     typeof newTransaction.store === 'string' &&
-    typeof newTransaction.amount === 'number'
+    typeof newTransaction.amount === 'string'
   ) {
     next();
   } else {
@@ -34,25 +41,23 @@ function validateTransactionData(req, res, next) {
   }
 }
 
-router.use(bodyParser.json());
-
 // Create a new transaction
-router.post('/transactions', validateTransactionData, (req, res) => {
+router.post('/', validateTransactionData, (req, res) => {
   const newTransaction = req.body;
+  const newTransactionId = transactions.length + 1;
+  newTransaction.transaction_id = newTransactionId;
 
-  if (transactions.find((txn) => txn.transaction_id === newTransaction.transaction_id)) {
+  if (transactions.find((acc) => acc.transaction_id === newTransaction.transaction_id)) {
     return res.status(400).json({ message: 'Transaction already exists' });
   } else {
-    newTransaction.transaction_id = transactions.length + 1;
     const newTransactionObj = {
       transaction_id: newTransaction.transaction_id,
-      name: newTransaction.name,
-      username: newTransaction.username,
+      date: newTransaction.date,
       purchase: newTransaction.purchase,
-      type: newTransaction.type,
       store: newTransaction.store,
       amount: newTransaction.amount,
-      date: newTransaction.date,
+      name: newTransaction.name,
+      type: newTransaction.type,
     };
 
     transactions.push(newTransactionObj);
@@ -64,15 +69,43 @@ router.post('/transactions', validateTransactionData, (req, res) => {
   }
 });
 
-// Get all transactions
-router.get('/transactions', async (req, res) => {
-  res.status(200).json(transactions);
+// Update a transaction by ID
+router.put('/:transaction_id', validateTransactionData, (req, res) => {
+  const { transaction_id } = req.params;
+  const updatedTransaction = req.body;
+
+  if (!transactions[transaction_id]) {
+    return res.status(404).json({ message: 'Transaction not found' });
+  }
+
+  transactions[transaction_id] = updatedTransaction;
+  res.status(200).json({ updatedTransaction });
 });
 
-// Get a transaction by ID
-router.get('/transactions/:transaction_id', (req, res) => {
-  const id = req.params.transaction_id;
-  const transaction = transactions.find((txn) => txn._id === id); // Corrected property name
+
+// Delete a transaction by ID
+router.delete('/:transaction_id', transactionExists, (req, res) => {
+  const { transaction_id } = req.params;
+  const index = transactions.findIndex(transaction => transaction.transaction_id === transaction_id);
+
+  if (index !== -1) {
+    transactions.splice(index, 1);
+    res.status(204).send('Transaction deleted successfully');
+  } else {
+    res.status(404).json({ message: 'Transaction not found' });
+  }
+});
+
+// Get all transactions
+router.get('/', (req, res) => {
+  const allTransactions = transactionQueries.getAllTransactions();
+  res.json(allTransactions);
+});
+
+// Get transaction by ID
+router.get('/:transaction_id', (req, res) => {
+  const transactionId = parseInt(req.params.transaction_id); // Adjust here
+  const transaction = transactionQueries.getTransactionById(transactionId);
 
   if (transaction) {
     res.json(transaction);
@@ -81,72 +114,74 @@ router.get('/transactions/:transaction_id', (req, res) => {
   }
 });
 
+// Get transaction by username
+router.get('/username/:username', (req, res) => {
+  const username = req.params.username;
+  const transaction = transactionQueries.getTransactionByUsername(username);
 
-// Update a transaction by ID
-router.put('/transactions/:transaction_id', transactionExists, validateTransactionData, (req, res) => {
-  const { id } = req.params;
-  transactions[id] = req.body;
-  res.status(200).json({ updatedTransaction: transactions[id] });
-});
-
-// Delete a transaction by ID
-router.delete('/transactions/:transaction_id', transactionExists, (req, res) => {
-  const { id } = req.params;
-  const deletedTransaction = transactions.splice(id, 1);
-  res.status(204).send('Transaction deleted successfully');
-});
-
-
-// Filter transactions by name
-router.get('/transactions', (req, res) => {
-  const { name } = req.query;
-  if (name) {
-    const filteredTransactions = transactions.filter((txn) => txn.name === name);
-    return res.json(filteredTransactions);
+  if (transaction) {
+    res.json(transaction);
+  } else {
+    res.status(404).json({ message: 'Transaction not found' });
   }
-  return res.json(filteredTransactions);
 });
 
-router.get('/transactions', (req, res) => {
-  const { username } = req.query;
+// Get transaction by name
+router.get('/name/:name', (req, res) => {
+  const name = req.params.name;
+  const transaction = transactionQueries.getTransactionByName(name);
 
-  if (!username) {
-    return res.status(400).json({ error: 'Username is required for filtering' });
+  if (transaction) {
+    res.json(transaction);
+  } else {
+    res.status(404).json({ message: 'Transaction not found' });
   }
-
-  const filteredTransactions = transactions.filter((transaction) => transaction.username === username);
-  res.json(filteredTransactions);
 });
 
+router.get('/purchase/:purchase', (req, res) => {
+  const purchase = req.params.purchase;
+  const transactions = transactionQueries.getTransactionsByPurchase(purchase);
 
-// Sort transactions by amount and direction
-router.get('/transactions', (req, res) => {
-  const { sortByAmount, sortDirection } = req.query;
-
-  let sortedTransactions = [...transactions];
-
-  if (sortByAmount && sortDirection === 'asc') {
-    sortedTransactions.sort((a, b) => a.amount - b.amount);
-
-    if (sortDirection === 'desc') {
-      sortedTransactions.reverse();
-    }
+  if (transactions.length > 0) {
+    res.json(transactions);
+  } else {
+    res.status(404).json({ message: 'Transactions not found for the specified purchase' });
   }
-
-  return res.json(sortedTransactions);
 });
 
+// Get transactions by type
+router.get('/transactions/type/:type', (req, res) => {
+  const type = req.params.type;
+  const transactions = transactionQueries.getTransactionsByType(type);
 
-// Filter transactions by type
-router.get('/transactions', (req, res) => {
-  const { type } = req.query;
-  if (type) {
-    const filteredTransactions = transactions.filter((txn) => txn.type === type);
-    return res.json(filteredTransactions);
+  if (transactions.length > 0) {
+    res.json(transactions);
+  } else {
+    res.status(404).json({ message: 'Transactions not found for the specified type' });
   }
-  return res.json(filteredTransactions);
 });
 
+router.get('/month-year', (req, res) => {
+  const { month, year } = req.query;
+  const transactions = getTransactionsByMonthYear(month, year);
 
+  if (transactions.length > 0) {
+    res.json(transactions);
+  } else {
+    res.status(404).json({ message: 'Transactions not found for the specified month and year' });
+  }
+});
+
+// Get transactions by month, year, username, and type
+router.get('/month-year-user-type', (req, res) => {
+  const { month, year, username, type } = req.query;
+  const transactions = getTransactionsByMonthYearUserType(month, year, username, type);
+
+  if (transactions.length > 0) {
+    res.json(transactions);
+  } else {
+    res.status(404).json({ message: 'Transactions not found for the specified month, year, username, and type' });
+  }
+});
 
 module.exports = router;

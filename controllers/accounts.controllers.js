@@ -1,12 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const existingAccounts = require('../models/account.model');
+const accountQueries = require('../queries/accountQueries'); // Assuming the query file is named accountQueries.js
 const bodyParser = require('body-parser');
+const cors = require('cors');
+
+router.use(cors());
+router.use(bodyParser.json());
 
 // Middleware to check if an account exists
-function accountExists(req, res, next) {
+async function accountExists(req, res, next) {
   const { accountId } = req.params;
-  const account = existingAccounts.find((acc) => acc.account_id === accountId);
+  const account = await accountQueries.getAccountById(accountId);
 
   if (!account) {
     return res.status(404).json({ message: 'Account not found' });
@@ -20,7 +24,7 @@ function validateAccountData(req, res, next) {
   const newAccount = req.body;
 
   if (
-    typeof newAccount.account_id === 'string' &&
+    typeof newAccount.account_id === 'number' &&
     typeof newAccount.username === 'string' &&
     typeof newAccount.balance === 'number' &&
     typeof newAccount.account_number === 'string' &&
@@ -33,42 +37,23 @@ function validateAccountData(req, res, next) {
   }
 }
 
-router.use(bodyParser.json());
-
 // Create a new account
-router.post('/accounts', validateAccountData, (req, res) => {
+router.post('/', validateAccountData, async (req, res) => {
   const newAccount = req.body;
-
-  if (existingAccounts.find((acc) => acc.account_id === newAccount.account_id)) {
-    return res.status(400).json({ message: 'Account already exists' });
-  } else {
-    const newAccountObj = {
-      account_id: newAccount.account_id,
-      username: newAccount.username,
-      balance: newAccount.balance,
-      account_number: newAccount.account_number,
-      routing_number: newAccount.routing_number,
-      type: newAccount.type,
-    };
-
-    existingAccounts.push(newAccountObj);
-    return res.status(201).json({
-      status: 'OK',
-      payload: existingAccounts[existingAccounts.length - 1],
-      message: 'Account created',
-    });
-  }
+  const createdAccount = await accountQueries.createAccount(newAccount);
+  res.status(201).json(createdAccount);
 });
 
 // Get all accounts
-router.get('/accounts', (req, res) => {
-  res.json(existingAccounts);
+router.get('/', async (req, res) => {
+  const allAccounts = await accountQueries.getAllAccounts();
+  res.json(allAccounts);
 });
 
-// Get an account by ID
-router.get('/accounts/:accountId', accountExists, (req, res) => {
-  const { accountId } = req.params;
-  const account = existingAccounts.find((acc) => acc.account_id === accountId);
+// Get account by ID
+router.get('/:accountId', async (req, res) => {
+  const accountId = parseInt(req.params.accountId);
+  const account = await accountQueries.getAccountById(accountId);
 
   if (account) {
     res.json(account);
@@ -78,28 +63,40 @@ router.get('/accounts/:accountId', accountExists, (req, res) => {
 });
 
 // Update an account by ID
-router.put('/accounts/:accountId', accountExists, validateAccountData, (req, res) => {
+router.put('/:accountId', accountExists, validateAccountData, async (req, res) => {
   const { accountId } = req.params;
   const updatedAccount = req.body;
+  const result = await accountQueries.updateAccount(accountId, updatedAccount);
 
-  if (!existingAccounts[accountId]) {
-    return res.status(404).json({ message: 'Account not found' });
+  if (result.success) {
+    res.json(result.updatedAccount);
+  } else {
+    res.status(404).json({ message: 'Account not found' });
   }
-
-  existingAccounts[accountId] = updatedAccount;
-  res.status(200).json({ updatedAccount: updatedAccount });
 });
 
 // Delete an account by ID
-router.delete('/accounts/:accountId', accountExists, (req, res) => {
+router.delete('/:accountId', accountExists, async (req, res) => {
   const { accountId } = req.params;
+  const result = await accountQueries.deleteAccount(accountId);
 
-  if (!existingAccounts[accountId]) {
-    return res.status(404).json({ message: 'Account not found' });
+  if (result.success) {
+    res.status(204).send('Account deleted successfully');
+  } else {
+    res.status(404).json({ message: 'Account not found' });
   }
+});
 
-  existingAccounts.splice(accountId, 1);
-  res.status(204).send('Account deleted successfully');
+// Get account by username
+router.get('/', async (req, res) => {
+  const username = req.query.username; // Use req.query to get parameters from the query string
+  const account = await accountQueries.getAccountByUsername(username);
+
+  if (account) {
+    res.json(account);
+  } else {
+    res.status(404).json({ message: 'Account not found' });
+  }
 });
 
 module.exports = router;

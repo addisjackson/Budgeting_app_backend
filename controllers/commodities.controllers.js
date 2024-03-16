@@ -1,17 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const CommoditiesModel = require('../models/commodities.model');
-const bodyParser = require('body-parser');
+const commoditiesQueries = require('../queries/commodityQueries');
 const cors = require('cors');
+const bodyParser = require('body-parser');
 
+// Check if you need bodyParser, or use express.json() if using Express v4.16.0 and above
 router.use(bodyParser.json());
-router.use(cors);
+router.use(cors()); //
+router.use(express.json());
 
-// Create a new commodity (linked to a transaction)
-router.post('/', async (req, res) => {
+
+// Create a new commodity
+router.post('/', (req, res) => {
   try {
-    const newCommodity = await CommoditiesModel.create(req.body);
-    res.status(201).json(newCommodity);
+    const newCommodity = req.body;
+    const createdCommodity = commoditiesQueries.createCommodity(newCommodity);
+    res.status(201).json(createdCommodity);
   } catch (error) {
     console.error('Error creating commodity:', error.message);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -19,62 +23,47 @@ router.post('/', async (req, res) => {
 });
 
 // Get all commodities
-router.get('/', async (req, res) => {
-  try {
-    const commodities = await CommoditiesModel.find();
-    res.status(200).json(commodities);
-  } catch (error) {
-    console.error('Error fetching commodities:', error.message);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
+router.get('/', (req, res) => {
+  // Check if a sorting order is provided in query parameters
+  const sortOrder = req.query.sortOrder || 'asc';
+  const allCommodities = commoditiesQueries.getAllSortedCommodities(sortOrder);
+  res.json(allCommodities);
 });
 
 // Get a specific commodity by transaction ID
-router.get('/:id', async (req, res) => {
-  try {
-    const commodity = await CommoditiesModel.findOne({ id: req.params.id });
-    if (!commodity) {
-      res.status(404).json({ error: 'Commodity not found' });
-    } else {
-      res.status(200).json(commodity);
-    }
-  } catch (error) {
-    console.error('Error fetching commodity by transaction ID:', error.message);
-    res.status(500).json({ error: 'Internal Server Error' });
+router.get('/:id', (req, res) => {
+  const transactionId = parseInt(req.params.id);
+  const commodity = commoditiesQueries.getCommodityById(transactionId);
+
+  if (commodity) {
+    res.json(commodity);
+  } else {
+    res.status(404).json({ message: 'Commodity not found' });
   }
 });
 
 // Update a commodity by transaction ID
-router.put('/:id', async (req, res) => {
-  try {
-    const updatedCommodity = await CommoditiesModel.findOneAndUpdate(
-      { id: req.params.id },
-      req.body,
-      { new: true }
-    );
-    if (!updatedCommodity) {
-      res.status(404).json({ error: 'Commodity not found' });
-    } else {
-      res.status(200).json(updatedCommodity);
-    }
-  } catch (error) {
-    console.error('Error updating commodity by transaction ID:', error.message);
-    res.status(500).json({ error: 'Internal Server Error' });
+router.put('/:id', (req, res) => {
+  const transactionId = parseInt(req.params.id);
+  const updatedCommodity = req.body;
+  const result = commoditiesQueries.updateCommodity(transactionId, updatedCommodity);
+
+  if (result.success) {
+    res.json(result.updatedCommodity);
+  } else {
+    res.status(404).json({ message: 'Commodity not found' });
   }
 });
 
 // Delete a commodity by transaction ID
-router.delete('/:id', async (req, res) => {
-  try {
-    const deletedCommodity = await CommoditiesModel.findOneAndDelete({ id: req.params.id });
-    if (!deletedCommodity) {
-      res.status(404).json({ error: 'Commodity not found' });
-    } else {
-      res.status(204).json(); // No content
-    }
-  } catch (error) {
-    console.error('Error deleting commodity by transaction ID:', error.message);
-    res.status(500).json({ error: 'Internal Server Error' });
+router.delete('/:id', (req, res) => {
+  const transactionId = parseInt(req.params.id);
+  const result = commoditiesQueries.deleteCommodity(transactionId);
+
+  if (result.success) {
+    res.status(204).json(); // No content
+  } else {
+    res.status(404).json({ message: 'Commodity not found' });
   }
 });
 
